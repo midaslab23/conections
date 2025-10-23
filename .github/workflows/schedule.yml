@@ -1,0 +1,45 @@
+name: Run anomaly detection hourly
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # cada hora, minuto 0 (ajusta CRON si quieres cada 10m: '*/10 * * * *')
+  workflow_dispatch:      # permite trigger manual
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run detection script
+        env:
+          TICKERS: ${{ secrets.TICKERS }}   # optional: set comma-separated in repo secrets, or edit script
+        run: |
+          python run_detection.py
+
+      - name: Upload outputs as artifact (optional for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: anomaly-outputs
+          path: out/**
+
+      # If you prefer to upload via azcli instead of python azure sdk:
+      - name: Upload to Azure Blob (alternative)
+        if: env.AZURE_STORAGE_CONNECTION_STRING != ''
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_CONTAINER: ${{ secrets.AZURE_CONTAINER }}
+        run: |
+          # Azure CLI optional; we already upload in script using python azure sdk
+          echo "Azure upload done in script"
