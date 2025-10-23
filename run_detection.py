@@ -20,7 +20,7 @@ CONTAMINATION = 0.05
 OUT_DIR = "out"                     # local output folder
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# ---------- helper functions ----------
+# ---------- helpers ----------
 def fetch_intraday(ticker, period=PERIOD, interval=INTERVAL):
     df = yf.download(tickers=ticker, period=period, interval=interval, progress=False, threads=False)
     if df is None or df.empty:
@@ -64,7 +64,6 @@ def isolationforest_anomalies(df, col='close', contamination=CONTAMINATION):
 def plot_and_save(df, ticker, date_for_file):
     fig, ax = plt.subplots(figsize=(12,4))
     ax.plot(df['datetime'], df['close'], label='close', linewidth=1)
-    # compute bands for plotting
     _, rolling_mean, lower, upper = bands_anomalies(df)
     ax.fill_between(df['datetime'], lower, upper, color='gray', alpha=0.18)
     an_b = df[df['bandas_anom']]
@@ -76,12 +75,12 @@ def plot_and_save(df, ticker, date_for_file):
         ax.scatter(an_if['datetime'], an_if['close'], marker='x', color='red', s=45)
     if not an_both.empty:
         ax.scatter(an_both['datetime'], an_both['close'], marker='*', color='black', s=90)
-    ax.set_title(f"{ticker} | rows={len(df)} | Bandas={len(an_b)} | IF={len(an_if)} | Combined={len(df[df['combined']])}")
+    ax.set_title(f"{ticker} | rows={len(df)} | Bandas={len(an_b)} | IF={len(an_if)} | Combined={int(df['combined'].sum())}")
     ax.set_xlabel("datetime"); ax.set_ylabel("price"); ax.grid(alpha=0.3)
-    out_png = os.path.join(OUT_DIR, f"{ticker}_plot_{date_for_file}.png")
-    fig.savefig(out_png, dpi=150, bbox_inches='tight')
+    png = os.path.join(OUT_DIR, f"{ticker}_plot_{date_for_file}.png")
+    fig.savefig(png, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    return out_png
+    return png
 
 # ---------- main ----------
 summaries = []
@@ -98,23 +97,21 @@ for ticker in TICKERS:
     csv_path = os.path.join(OUT_DIR, f"{ticker}_anomalies_{last_date}.csv")
     df.to_csv(csv_path, index=False)
     png_path = plot_and_save(df, ticker, last_date)
-    summary = {
+    print("  saved", csv_path, png_path)
+    summaries.append({
         "date": last_date,
         "ticker": ticker,
         "rows": len(df),
         "anomalies_bandas": int(df['bandas_anom'].sum()),
         "anomalies_if": int(df['if_anom'].sum()),
         "anomalies_combined": int(df['combined'].sum())
-    }
-    summaries.append(summary)
-    print("  saved", csv_path, png_path)
+    })
 
-# write daily summary file (append/replace day rows)
+# update summary_daily.csv (replace same date+ticker)
 summary_df = pd.DataFrame(summaries)
 summary_csv = os.path.join(OUT_DIR, "summary_daily.csv")
 if os.path.exists(summary_csv):
     prev = pd.read_csv(summary_csv)
-    # remove rows for today's date/tickers to avoid duplicates
     for r in summaries:
         prev = prev[~((prev['date']==r['date']) & (prev['ticker']==r['ticker']))]
     merged = pd.concat([prev, summary_df], ignore_index=True)
@@ -122,21 +119,4 @@ if os.path.exists(summary_csv):
 else:
     summary_df.to_csv(summary_csv, index=False)
 
-# ---------- Optional: upload to Azure Blob if env vars set ----------
-AZ_CONN_STR = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-AZ_CONTAINER = os.environ.get("AZURE_CONTAINER", "anomaly-outputs")
-if AZ_CONN_STR:
-    print("Uploading files to Azure Blob:", AZ_CONTAINER)
-    bsc = BlobServiceClient.from_connection_string(AZ_CONN_STR)
-    try:
-        bsc.create_container(AZ_CONTAINER)
-    except Exception:
-        pass
-    for fname in os.listdir(OUT_DIR):
-        path = os.path.join(OUT_DIR, fname)
-        blob_client = bsc.get_blob_client(container=AZ_CONTAINER, blob=fname)
-        with open(path, "rb") as data:
-            blob_client.upload_blob(data, overwrite=True)
-        print("  uploaded", fname)
-else:
-    print("AZURE_STORAGE_CONNECTION_STRING not set — skipping upload. Local outputs in", OUT_DIR)
+print("Done. Outputs in", OUT_DIR)
