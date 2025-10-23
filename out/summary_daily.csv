@@ -1,0 +1,5 @@
+date,ticker,rows,anomalies_bandas,anomalies_if,anomalies_combined
+2025-10-23,^MXX,754,70,38,97
+2025-10-23,^SPX,753,75,38,102
+2025-10-23,^VIX,753,63,38,86
+2025-10-23,^GSPC,753,75,38,102
