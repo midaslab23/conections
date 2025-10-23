@@ -1,18 +1,23 @@
 name: Hourly anomaly run (commit outputs)
 
+# Permisos: aseguramos write para contents (necesario para git push con GITHUB_TOKEN)
+permissions:
+  contents: write
+
 on:
   schedule:
-    - cron: '0 * * * *'   # cada hora en minuto 0 (ajusta: '*/30 * * * *' = cada 30m)
+    - cron: '0 * * * *'   # cada hora (ajusta si quieres otro intervalo)
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repo (with credentials)
         uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: true   # deja el GITHUB_TOKEN en el repo para push
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -28,10 +33,23 @@ jobs:
         run: |
           python run_detection.py
 
-      - name: Commit outputs
+      - name: Show created files (debug)
+        run: |
+          echo "Listing out/ content:"
+          ls -la out || true
+
+      - name: Commit outputs to repo (if any)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add outputs || echo "no outputs"
-          git commit -m "Update outputs [ci skip]" || echo "no changes to commit"
-          git push
+          # Añadimos todo el directorio 'out' (donde tu script guarda los outputs)
+          git add out -f || echo "no out to add"
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update out/ outputs [ci skip]" || echo "commit failed"
+            # push usando token en la URL para evitar problemas de credenciales
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:${{ github.ref_name }}
+          fi
