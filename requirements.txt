@@ -1,5 +1,3 @@
-nginx
-
 yfinance
 pandas
 numpy
