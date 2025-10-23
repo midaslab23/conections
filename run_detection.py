@@ -8,6 +8,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import yfinance as yf
 from sklearn.ensemble import IsolationForest
+# al inicio, junto a otros imports
+import matplotlib.dates as mdates
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)  # opcional: silenciar la warning de yfinance
+
 
 # ---------- CONFIG ----------
 TICKERS = ["^MXX", "^SPX", "^VIX","^GSPC"]          # edit as needed
@@ -143,31 +148,38 @@ def plot_and_save(df, ticker, date_for_file, save_csv=True):
     return {"csv": csv_path, "png": png_path, "rows": len(df),
             "bandas": n_bandas, "if": n_if, "both": n_both, "or": n_or}
 
+# ---------- main (fragmento) ----------
+summaries = []   # <- asegurarse de inicializar antes del for
+for ticker in TICKERS:
+    ...
 
 # ---------- main (fragmento) ----------
 for ticker in TICKERS:
-    print("Processing", ticker)
-    df = fetch_intraday(ticker)
-    if df.empty:
-        print("  no data for", ticker)
+    try:
+        print("Processing", ticker)
+        df = fetch_intraday(ticker)
+        if df.empty:
+            print("  no data for", ticker)
+            continue
+
+        last_dt = df['datetime'].iloc[-1]
+        date_for_file = last_dt.date().isoformat()
+
+        out = plot_and_save(df, ticker, date_for_file, save_csv=True)
+        print("  saved", out["csv"], out["png"])
+        summaries.append({
+            "date": date_for_file,
+            "ticker": ticker,
+            "rows": out["rows"],
+            "anomalies_bandas": out["bandas"],
+            "anomalies_if": out["if"],
+            "anomalies_both": out["both"],
+            "anomalies_or": out["or"]
+        })
+    except Exception as e:
+        print(f"  ERROR processing {ticker}: {e}")
+        # opcional: guardar trace para debugging
+        import traceback
+        traceback.print_exc()
         continue
-
-    # calcular flags y guardar CSV+PNG con la función corregida
-    last_dt = df['datetime'].iloc[-1]
-    # fecha o timestamp: por defecto usábamos solo date; si quieres hourly change a timestamp_str
-    date_for_file = last_dt.date().isoformat()   # formato YYYY-MM-DD
-    # si prefieres versión con hora (no sobrescribir): uncomment siguiente línea
-    # date_for_file = last_dt.strftime("%Y%m%d_%H%M")
-
-    out = plot_and_save(df, ticker, date_for_file, save_csv=True)
-    print("  saved", out["csv"], out["png"])
-    summaries.append({
-        "date": date_for_file,
-        "ticker": ticker,
-        "rows": out["rows"],
-        "anomalies_bandas": out["bandas"],
-        "anomalies_if": out["if"],
-        "anomalies_both": out["both"],
-        "anomalies_or": out["or"]
-    })
 
