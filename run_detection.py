@@ -11,7 +11,7 @@ from sklearn.ensemble import IsolationForest
 from azure.storage.blob import BlobServiceClient
 
 # ---------- CONFIG ----------
-TICKERS = ["^MXX", "^SPX", "^VIX"]          # edit as needed
+TICKERS = ["^MXX", "^SPX", "^VIX","^GSPC"]          # edit as needed
 PERIOD = "3Y"
 INTERVAL = "1d"
 ROLLING_WINDOW = 20
