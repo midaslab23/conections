@@ -8,7 +8,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import yfinance as yf
 from sklearn.ensemble import IsolationForest
-from azure.storage.blob import BlobServiceClient
 
 # ---------- CONFIG ----------
 TICKERS = ["^MXX", "^SPX", "^VIX","^GSPC"]          # edit as needed
