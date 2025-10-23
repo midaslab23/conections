@@ -182,4 +182,32 @@ for ticker in TICKERS:
         import traceback
         traceback.print_exc()
         continue
+# ---- crear archivo combinado (timeseries) ----
+import glob
+
+# encuentra todos los CSV por ticker (puedes ajustar el pattern si cambias nombres)
+csv_files = glob.glob(os.path.join(OUT_DIR, "*_anomalies_*.csv"))
+dfs = []
+for f in csv_files:
+    try:
+        tmp = pd.read_csv(f, parse_dates=['datetime'])
+        # intentar inferir ticker del nombre de archivo si no tiene columna
+        if 'ticker' not in tmp.columns:
+            # filename like out/TICKER_anomalies_YYYY-MM-DD.csv
+            fname = os.path.basename(f)
+            ticker_name = fname.split("_anomalies_")[0]
+            tmp['ticker'] = ticker_name
+        dfs.append(tmp)
+    except Exception as e:
+        print("Error leyendo", f, e)
+if dfs:
+    all_df = pd.concat(dfs, ignore_index=True)
+    # opcional: ordenar por ticker+datetime
+    if 'datetime' in all_df.columns:
+        all_df = all_df.sort_values(['ticker','datetime']).reset_index(drop=True)
+    combined_path = os.path.join(OUT_DIR, "all_tickers_anomalies.csv")
+    all_df.to_csv(combined_path, index=False)
+    print("Saved combined timeseries:", combined_path)
+else:
+    print("No csv files found to combine.")
 
