@@ -38,6 +38,7 @@ def fetch_intraday(ticker, period=PERIOD, interval=INTERVAL):
             df = df.rename(columns={candidates[0]: 'close'})
     return df
 
+# ---------- funciones corregidas para AND/OR y guardado de bandas ----------
 def bands_anomalies(df, col='close', wind=ROLLING_WINDOW, sigma=SIGMA):
     s = df[col].astype(float)
     rolling_mean = s.rolling(window=wind, min_periods=max(1, wind//2)).mean()
@@ -45,6 +46,7 @@ def bands_anomalies(df, col='close', wind=ROLLING_WINDOW, sigma=SIGMA):
     lower = rolling_mean - sigma * rolling_std
     upper = rolling_mean + sigma * rolling_std
     is_anom = (s <= lower) | (s >= upper)
+    # devolver también las series de bandas para guardarlas en CSV
     return is_anom.fillna(False), rolling_mean, lower, upper
 
 def isolationforest_anomalies(df, col='close', contamination=CONTAMINATION):
@@ -60,62 +62,112 @@ def isolationforest_anomalies(df, col='close', contamination=CONTAMINATION):
     preds = model.predict(X)
     return pd.Series(preds == -1, index=df.index)
 
-def plot_and_save(df, ticker, date_for_file):
+def plot_and_save(df, ticker, date_for_file, save_csv=True):
+    """
+    df: DataFrame con al menos 'datetime' y 'close'
+    Esta función asumirá que df ya tiene las columnas de flag o las calcula aquí.
+    """
+    # recalcular bandas y IF para obtener las series de bandas para CSV
+    bandas_flag, rolling_mean, lower, upper = bands_anomalies(df)
+    if_flag = isolationforest_anomalies(df)
+    # flags separados
+    both_flag = bandas_flag & if_flag
+    bandas_only = bandas_flag & (~if_flag)
+    if_only = if_flag & (~bandas_flag)
+
+    # añadir columnas para guardar
+    df = df.copy()
+    df['rolling_mean'] = rolling_mean
+    df['lower_band'] = lower
+    df['upper_band'] = upper
+    df['bandas_anom'] = bandas_flag
+    df['if_anom'] = if_flag
+    df['both_anom'] = both_flag
+    df['bandas_only'] = bandas_only
+    df['if_only'] = if_only
+    df['combined_or'] = bandas_flag | if_flag
+    df['combined_and'] = both_flag
+
+    # conteos para titulo/resumen
+    n_bandas = int(bandas_flag.sum())
+    n_if = int(if_flag.sum())
+    n_both = int(both_flag.sum())
+    n_or = int((bandas_flag | if_flag).sum())
+
+    # plot
     fig, ax = plt.subplots(figsize=(12,4))
     ax.plot(df['datetime'], df['close'], label='close', linewidth=1)
-    _, rolling_mean, lower, upper = bands_anomalies(df)
-    ax.fill_between(df['datetime'], lower, upper, color='gray', alpha=0.18)
-    an_b = df[df['bandas_anom']]
-    an_if = df[df['if_anom']]
-    an_both = df[df['combined']]
-    if not an_b.empty:
-        ax.scatter(an_b['datetime'], an_b['close'], marker='o', color='orange', s=40)
-    if not an_if.empty:
-        ax.scatter(an_if['datetime'], an_if['close'], marker='x', color='red', s=45)
-    if not an_both.empty:
-        ax.scatter(an_both['datetime'], an_both['close'], marker='*', color='black', s=90)
-    ax.set_title(f"{ticker} | rows={len(df)} | Bandas={len(an_b)} | IF={len(an_if)} | Combined={int(df['combined'].sum())}")
-    ax.set_xlabel("datetime"); ax.set_ylabel("price"); ax.grid(alpha=0.3)
-    png = os.path.join(OUT_DIR, f"{ticker}_plot_{date_for_file}.png")
-    fig.savefig(png, dpi=150, bbox_inches='tight')
-    plt.close(fig)
-    return png
+    # bandas sombreadas (usar rolling_mean, lower, upper)
+    ax.fill_between(df['datetime'], df['lower_band'], df['upper_band'], color='gray', alpha=0.18,
+                    label=f'rolling ±{SIGMA}σ (w={ROLLING_WINDOW})')
 
-# ---------- main ----------
-summaries = []
+    # plot: bandas-only (naranja), IF-only (rojo), both (negro estrella)
+    if not df[df['bandas_only']].empty:
+        an_b = df[df['bandas_only']]
+        ax.scatter(an_b['datetime'], an_b['close'], marker='o', color='orange', s=40,
+                   label=f'Bandas only (n={len(an_b)})')
+    if not df[df['if_only']].empty:
+        an_if = df[df['if_only']]
+        ax.scatter(an_if['datetime'], an_if['close'], marker='x', color='red', s=45,
+                   label=f'IF only (n={len(an_if)})')
+    if not df[df['both_anom']].empty:
+        an_both = df[df['both_anom']]
+        ax.scatter(an_both['datetime'], an_both['close'], marker='*', color='black', s=90,
+                   label=f'Both (n={len(an_both)})')
+
+    ax.set_title(f"{ticker} | rows={len(df)} | Bandas={n_bandas} | IF={n_if} | Both={n_both} | OR={n_or}")
+    ax.set_xlabel("datetime"); ax.set_ylabel("price")
+    ax.legend(loc='upper left', fontsize='small')
+    ax.grid(alpha=0.3)
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(ax.xaxis.get_major_locator()))
+    plt.xticks(rotation=30)
+
+    # guardar CSV (con las columnas de bandas) y PNG
+    if save_csv:
+        csv_path = os.path.join(OUT_DIR, f"{ticker}_anomalies_{date_for_file}.csv")
+        # orden de columnas recomendado
+        cols_order = ['datetime','close','rolling_mean','lower_band','upper_band',
+                      'bandas_anom','if_anom','both_anom','bandas_only','if_only','combined_or','combined_and']
+        # algunas columnas pueden no existir si df era corto; filtrar
+        cols_to_save = [c for c in cols_order if c in df.columns]
+        df.to_csv(csv_path, index=False)
+    else:
+        csv_path = None
+
+    png_path = os.path.join(OUT_DIR, f"{ticker}_plot_{date_for_file}.png")
+    fig.savefig(png_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    # return paths y conteos
+    return {"csv": csv_path, "png": png_path, "rows": len(df),
+            "bandas": n_bandas, "if": n_if, "both": n_both, "or": n_or}
+
+
+# ---------- main (fragmento) ----------
 for ticker in TICKERS:
     print("Processing", ticker)
     df = fetch_intraday(ticker)
     if df.empty:
         print("  no data for", ticker)
         continue
-    df['bandas_anom'], _, _, _ = bands_anomalies(df)
-    df['if_anom'] = isolationforest_anomalies(df)
-    df['combined'] = df['bandas_anom'] | df['if_anom']
-    last_date = df['datetime'].iloc[-1].date().isoformat()
-    csv_path = os.path.join(OUT_DIR, f"{ticker}_anomalies_{last_date}.csv")
-    df.to_csv(csv_path, index=False)
-    png_path = plot_and_save(df, ticker, last_date)
-    print("  saved", csv_path, png_path)
+
+    # calcular flags y guardar CSV+PNG con la función corregida
+    last_dt = df['datetime'].iloc[-1]
+    # fecha o timestamp: por defecto usábamos solo date; si quieres hourly change a timestamp_str
+    date_for_file = last_dt.date().isoformat()   # formato YYYY-MM-DD
+    # si prefieres versión con hora (no sobrescribir): uncomment siguiente línea
+    # date_for_file = last_dt.strftime("%Y%m%d_%H%M")
+
+    out = plot_and_save(df, ticker, date_for_file, save_csv=True)
+    print("  saved", out["csv"], out["png"])
     summaries.append({
-        "date": last_date,
+        "date": date_for_file,
         "ticker": ticker,
-        "rows": len(df),
-        "anomalies_bandas": int(df['bandas_anom'].sum()),
-        "anomalies_if": int(df['if_anom'].sum()),
-        "anomalies_combined": int(df['combined'].sum())
+        "rows": out["rows"],
+        "anomalies_bandas": out["bandas"],
+        "anomalies_if": out["if"],
+        "anomalies_both": out["both"],
+        "anomalies_or": out["or"]
     })
 
-# update summary_daily.csv (replace same date+ticker)
-summary_df = pd.DataFrame(summaries)
-summary_csv = os.path.join(OUT_DIR, "summary_daily.csv")
-if os.path.exists(summary_csv):
-    prev = pd.read_csv(summary_csv)
-    for r in summaries:
-        prev = prev[~((prev['date']==r['date']) & (prev['ticker']==r['ticker']))]
-    merged = pd.concat([prev, summary_df], ignore_index=True)
-    merged.to_csv(summary_csv, index=False)
-else:
-    summary_df.to_csv(summary_csv, index=False)
-
-print("Done. Outputs in", OUT_DIR)
