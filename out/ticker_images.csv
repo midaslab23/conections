@@ -1,6 +1,6 @@
 ticker,image_url
-^MXX,https://github.com/midaslab23/conections/blob/main/out/%5EMXX_if_plot_2025-10-24.png
-^SPX,https://github.com/midaslab23/conections/blob/main/out/%5ESPX_if_plot_2025-10-24.png
-^VIX,https://github.com/midaslab23/conections/blob/main/out/%5EVIX_if_plot_2025-10-24.png
-^GSPC,https://github.com/midaslab23/conections/blob/main/out/%5EGSPC_if_plot_2025-10-24.png
-^BVSP,https://github.com/midaslab23/conections/blob/main/out/%5EBVSP_if_plot_2025-10-24.png
+^MXX,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EMXX_if_plot_2025-10-24.png
+^SPX,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5ESPX_if_plot_2025-10-24.png
+^VIX,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EVIX_if_plot_2025-10-24.png
+^GSPC,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EGSPC_if_plot_2025-10-24.png
+^BVSP,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EBVSP_if_plot_2025-10-24.png
