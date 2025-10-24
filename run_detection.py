@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)  # opcional: silenciar
 
 
 # ---------- CONFIG ----------
-TICKERS = ["^MXX", "^SPX", "^VIX","^GSPC"]          # edit as needed
+TICKERS = ["^MXX", "^SPX", "^VIX","^GSPC","BVSP"]          # edit as needed
 PERIOD = "3Y"
 INTERVAL = "1d"
 ROLLING_WINDOW = 20
