@@ -298,3 +298,24 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+#### imgágenes repo
+# Generar mapping de ticker -> image_url para Power BI (ejemplo GitHub raw)
+repo_user = "midaslab23"
+repo_name = "conections"
+branch = "main"             # o la rama donde estés guardando out/
+out_folder = "out"
+
+mappings = []
+for ticker in TICKERS:
+    safe = ticker.replace("^","").replace("/","_")  # sanitizar para filename
+    # filename exacto debe coincidir con lo que guardas: e.g. MXX_if_plot_2025-10-23.png
+    # si usas fecha dinámica, puedes elegir la última fecha o usar patrón sin fecha
+    filename = f"{safe}_if_plot_{datetime.utcnow().date().isoformat()}.png"
+    url = f"https://raw.githubusercontent.com/{repo_user}/{repo_name}/{branch}/{out_folder}/{filename}"
+    mappings.append({"ticker": ticker, "image_url": url})
+
+pd.DataFrame(mappings).to_csv(os.path.join(OUT_DIR, "ticker_images.csv"), index=False)
+print("Saved ticker_images.csv")
