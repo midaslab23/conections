@@ -117,32 +117,25 @@ def compute_if_flags(df, col='close', contamination=CONTAMINATION, roll_std_wind
 
     return data, if_flag, pd.Series(scores, index=data.index), Xs
 
-
 def save_if_plot(df, xs_scaled, scores, if_flags, ticker, date_for_file):
     """Crea y guarda el gráfico 2-panel (decision surface + histogram) por ticker."""
-    # Si no hay xs_scaled (p.ej. pocas observaciones), hacemos un plot simple de score/hist
     try:
         fig, axes = plt.subplots(1, 2, figsize=(16, 6), constrained_layout=True)
         ax = axes[0]
         if xs_scaled is not None:
-            # crear meshgrid en espacio escalado
             pad = 0.5
             xx, yy = np.meshgrid(
                 np.linspace(xs_scaled[:, 0].min() - pad, xs_scaled[:, 0].max() + pad, 300),
                 np.linspace(xs_scaled[:, 1].min() - pad, xs_scaled[:, 1].max() + pad, 300),
             )
             grid = np.column_stack([xx.ravel(), yy.ravel()])
-            # volver a entrenar un IF con los mismos Xs para decision_function grid
             model = IsolationForest(n_estimators=200, contamination=CONTAMINATION, random_state=0)
             model.fit(xs_scaled)
             Z = model.decision_function(grid).reshape(xx.shape)
             c = ax.contourf(xx, yy, Z, levels=60, cmap="Spectral_r", alpha=0.95)
             cb = fig.colorbar(c, ax=ax)
             cb.set_label("decision_function (más alto = más normal)", fontsize=10)
-            # separar inliers/outliers para graficar
-            inliers = df.loc[~if_flags, ['ret', 'roll_std']].copy()
-            outliers = df.loc[if_flags, ['ret', 'roll_std']].copy()
-            # scaled coordinates para scatter: usar xs_scaled
+            # scaled dataframe for plotting
             xs_df = pd.DataFrame(xs_scaled, columns=["ret_s","roll_std_s"], index=df.index)
             ax.scatter(xs_df.loc[~if_flags, 'ret_s'], xs_df.loc[~if_flags, 'roll_std_s'],
                        c="#1f77b4", s=28, alpha=0.6, label=f"Inliers n={(~if_flags).sum()}",
@@ -184,6 +177,7 @@ def save_if_plot(df, xs_scaled, scores, if_flags, ticker, date_for_file):
 def main():
     summaries = []
     rows_all = []
+
     for ticker in TICKERS:
         print(f"\nProcessing {ticker} ...")
         try:
@@ -195,13 +189,17 @@ def main():
             # compute bands
             bandas_flag, rolling_mean, lower, upper = compute_bands(df, col='close', wind=ROLLING_WINDOW, sigma=SIGMA)
 
-            # compute IF flags and scores and scaled features
-            # compute IF flags and scores and scaled features - ahora devuelve df con features
-            # compute IF flags and scores and scaled features - manejo compatible
+            # compute IF flags and scores and scaled features - devolvemos siempre 4 items
             res = compute_if_flags(df, col='close', contamination=CONTAMINATION, roll_std_window=ROLLING_STD_WINDOW)
-            
-            # res debería ser una tupla; soportamos tanto (df, if_flag, scores, xs_scaled)
-            # como la forma antigua (df, if_flag, scores) por compatibilidad
+
+            # DEBUG: imprimir info sobre res para ver qué devolvió la función
+            print("  DEBUG compute_if_flags returned type:", type(res))
+            if isinstance(res, tuple):
+                print("  DEBUG compute_if_flags tuple length:", len(res))
+            else:
+                print("  DEBUG compute_if_flags not tuple")
+
+            # unpack robusto; soporta versiones antiguas por compatibilidad
             if isinstance(res, tuple):
                 if len(res) == 4:
                     df_with_features, if_flag, scores, xs_scaled = res
@@ -209,31 +207,33 @@ def main():
                     df_with_features, if_flag, scores = res
                     xs_scaled = None
                 else:
-                    # evento inesperado: creamos fallback seguro
+                    # fallback seguro
                     df_with_features = res[0] if len(res) > 0 else df.copy()
                     if_flag = pd.Series([False]*len(df_with_features), index=df_with_features.index)
                     scores = pd.Series([0.0]*len(df_with_features), index=df_with_features.index)
                     xs_scaled = None
             else:
-                # si no devolvió tuple, fallback
                 df_with_features = df.copy()
                 if_flag = pd.Series([False]*len(df_with_features), index=df_with_features.index)
                 scores = pd.Series([0.0]*len(df_with_features), index=df_with_features.index)
                 xs_scaled = None
-            
-            # ahora usamos df_with_features e if_flag para el plot
+
+            # ahora sí definimos date_for_file (usar last timestamp)
+            last_dt = df['datetime'].iloc[-1]
+            date_for_file = last_dt.date().isoformat()
+
+            # generate IF plot (2-panel) and save -- usamos df_with_features y xs_scaled
             png = save_if_plot(df_with_features, xs_scaled, scores, if_flag, ticker, date_for_file)
+            print(f"  saved IF-plot: {png}")
 
-
-
-            # derive combined flags
+            # derive combined flags (usamos if_flag y bandas_flag alineados por index)
             both_flag = bandas_flag & if_flag
             bandas_only = bandas_flag & (~if_flag)
             if_only = if_flag & (~bandas_flag)
             combined_or = bandas_flag | if_flag
             combined_and = both_flag
 
-            # attach to df minimal columns
+            # attach to df minimal columns (usamos df to preserve datetime/close alignment)
             df_out = pd.DataFrame({
                 'datetime': df['datetime'],
                 'close': df['close'].astype(float),
@@ -252,12 +252,6 @@ def main():
 
             # append to accumulator
             rows_all.append(df_out)
-
-            # generate IF plot (2-panel) and save
-            last_dt = df['datetime'].iloc[-1]
-            date_for_file = last_dt.date().isoformat()
-            png = save_if_plot(df, xs_scaled, scores, if_flag, ticker, date_for_file)
-            print(f"  saved IF-plot: {png}")
 
             summaries.append({
                 "date": date_for_file,
@@ -278,10 +272,8 @@ def main():
     # combine and save single CSV
     if rows_all:
         all_df = pd.concat(rows_all, ignore_index=True)
-        # ensure column order exactly as requested
         cols = ['datetime','ticker','close','rolling_mean','lower_band','upper_band',
                 'bandas_anom','if_anom','both_anom','bandas_only','if_only','combined_or','combined_and']
-        # some columns could be missing if small df; filter carefully
         cols = [c for c in cols if c in all_df.columns]
         combined_path = os.path.join(OUT_DIR, "all_tickers_anomalies.csv")
         all_df[cols].to_csv(combined_path, index=False)
@@ -293,7 +285,6 @@ def main():
     if summaries:
         summary_df = pd.DataFrame(summaries)
         summary_csv = os.path.join(OUT_DIR, "summary_daily.csv")
-        # replace today's rows if exist
         if os.path.exists(summary_csv):
             prev = pd.read_csv(summary_csv)
             for r in summaries:
