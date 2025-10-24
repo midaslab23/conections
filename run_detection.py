@@ -317,7 +317,6 @@ for ticker in TICKERS:
     url = f"https://github.com/{repo_user}/{repo_name}/blob/{branch}/{out_folder}/%5{filename}"
     mappings.append({"ticker": ticker, "image_url": url})
 
-https://github.com/midaslab23/conections/blob/main/out/%5EBVSP_if_plot_2025-10-24.png
 
 pd.DataFrame(mappings).to_csv(os.path.join(OUT_DIR, "ticker_images.csv"), index=False)
 print("Saved ticker_images.csv")
