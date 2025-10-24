@@ -86,26 +86,37 @@ def compute_bands(df, col='close', wind=ROLLING_WINDOW, sigma=SIGMA):
     return is_anom.fillna(False), rolling_mean, lower, upper
 
 def compute_if_flags(df, col='close', contamination=CONTAMINATION, roll_std_window=ROLLING_STD_WINDOW):
-    """Computa returns (%), rolling std, estandariza y aplica IsolationForest.
-       Devuelve: if_flag Series (bool), score Series (decision_function), and scaled features as df columns.
+    """
+    Devuelve siempre 4 cosas:
+      - df_with_features (DataFrame con 'ret' y 'roll_std')
+      - if_flag  (pd.Series bool)
+      - scores   (pd.Series floats)
+      - Xs_scaled (np.array) o None si no hay suficientes datos
     """
     data = df.copy()
+    # crear features en el dataframe devuelto
     data['ret'] = data[col].pct_change().fillna(0).astype(float)
     data['roll_std'] = data['ret'].rolling(window=roll_std_window, min_periods=1).std().fillna(0).astype(float)
+
     X = data[['ret','roll_std']].values
-    # si muy pocos puntos, marcar no outliers
+    # si hay muy pocos puntos devolvemos estructuras vacías/seguras
     if len(X) < 5:
-        return (pd.Series([False]*len(df), index=df.index),
-                pd.Series([0.0]*len(df), index=df.index),
-                None)  # no scaled df
+        if_flag = pd.Series([False]*len(data), index=data.index)
+        scores = pd.Series([0.0]*len(data), index=data.index)
+        return data, if_flag, scores, None
+
     scaler = StandardScaler()
     Xs = scaler.fit_transform(X)
+
     model = IsolationForest(n_estimators=200, contamination=contamination, random_state=0)
     model.fit(Xs)
-    preds = model.predict(Xs)           # -1 outlier, 1 inlier
+    preds = model.predict(Xs)              # -1 outlier, 1 inlier
     scores = model.decision_function(Xs)  # higher = more normal
-    # return boolean series and scores and scaled features array
-    return pd.Series(preds == -1, index=df.index), pd.Series(scores, index=df.index), Xs
+
+    if_flag = pd.Series(preds == -1, index=data.index)
+
+    return data, if_flag, pd.Series(scores, index=data.index), Xs
+
 
 def save_if_plot(df, xs_scaled, scores, if_flags, ticker, date_for_file):
     """Crea y guarda el gráfico 2-panel (decision surface + histogram) por ticker."""
@@ -186,11 +197,33 @@ def main():
 
             # compute IF flags and scores and scaled features
             # compute IF flags and scores and scaled features - ahora devuelve df con features
-            df_with_features, if_flag, scores, xs_scaled = compute_if_flags(df, col='close',
-                                                               contamination=CONTAMINATION,
-                                                               roll_std_window=ROLLING_STD_WINDOW)
-            # ahora usa df_with_features para generar el plot (tiene 'ret' y 'roll_std')
+            # compute IF flags and scores and scaled features - manejo compatible
+            res = compute_if_flags(df, col='close', contamination=CONTAMINATION, roll_std_window=ROLLING_STD_WINDOW)
+            
+            # res debería ser una tupla; soportamos tanto (df, if_flag, scores, xs_scaled)
+            # como la forma antigua (df, if_flag, scores) por compatibilidad
+            if isinstance(res, tuple):
+                if len(res) == 4:
+                    df_with_features, if_flag, scores, xs_scaled = res
+                elif len(res) == 3:
+                    df_with_features, if_flag, scores = res
+                    xs_scaled = None
+                else:
+                    # evento inesperado: creamos fallback seguro
+                    df_with_features = res[0] if len(res) > 0 else df.copy()
+                    if_flag = pd.Series([False]*len(df_with_features), index=df_with_features.index)
+                    scores = pd.Series([0.0]*len(df_with_features), index=df_with_features.index)
+                    xs_scaled = None
+            else:
+                # si no devolvió tuple, fallback
+                df_with_features = df.copy()
+                if_flag = pd.Series([False]*len(df_with_features), index=df_with_features.index)
+                scores = pd.Series([0.0]*len(df_with_features), index=df_with_features.index)
+                xs_scaled = None
+            
+            # ahora usamos df_with_features e if_flag para el plot
             png = save_if_plot(df_with_features, xs_scaled, scores, if_flag, ticker, date_for_file)
+
 
 
             # derive combined flags
