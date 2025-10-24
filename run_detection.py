@@ -314,8 +314,9 @@ for ticker in TICKERS:
     # filename exacto debe coincidir con lo que guardas: e.g. MXX_if_plot_2025-10-23.png
     # si usas fecha dinámica, puedes elegir la última fecha o usar patrón sin fecha
     filename = f"{safe}_if_plot_{datetime.utcnow().date().isoformat()}.png"
-    url = f"https://github.com/{repo_user}/{repo_name}/blob/{branch}/{out_folder}/%5E{filename}"
+    url = f"https://raw.githubusercontent.com/{repo_user}/{repo_name}/refs/heads/{branch}/{out_folder}/%5E{filename}"
     mappings.append({"ticker": ticker, "image_url": url})
+
 
 
 pd.DataFrame(mappings).to_csv(os.path.join(OUT_DIR, "ticker_images.csv"), index=False)
