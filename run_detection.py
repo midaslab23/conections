@@ -314,7 +314,7 @@ for ticker in TICKERS:
     # filename exacto debe coincidir con lo que guardas: e.g. MXX_if_plot_2025-10-23.png
     # si usas fecha dinámica, puedes elegir la última fecha o usar patrón sin fecha
     filename = f"{safe}_if_plot_{datetime.utcnow().date().isoformat()}.png"
-    url = f"https://github.com/{repo_user}/{repo_name}/blob/{branch}/{out_folder}/%5{filename}"
+    url = f"https://github.com/{repo_user}/{repo_name}/blob/{branch}/{out_folder}/%5E{filename}"
     mappings.append({"ticker": ticker, "image_url": url})
 
 
