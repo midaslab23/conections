@@ -185,7 +185,13 @@ def main():
             bandas_flag, rolling_mean, lower, upper = compute_bands(df, col='close', wind=ROLLING_WINDOW, sigma=SIGMA)
 
             # compute IF flags and scores and scaled features
-            if_flag, scores, xs_scaled = compute_if_flags(df, col='close', contamination=CONTAMINATION, roll_std_window=ROLLING_STD_WINDOW)
+            # compute IF flags and scores and scaled features - ahora devuelve df con features
+            df_with_features, if_flag, scores, xs_scaled = compute_if_flags(df, col='close',
+                                                               contamination=CONTAMINATION,
+                                                               roll_std_window=ROLLING_STD_WINDOW)
+            # ahora usa df_with_features para generar el plot (tiene 'ret' y 'roll_std')
+            png = save_if_plot(df_with_features, xs_scaled, scores, if_flag, ticker, date_for_file)
+
 
             # derive combined flags
             both_flag = bandas_flag & if_flag
