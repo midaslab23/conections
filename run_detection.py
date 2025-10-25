@@ -20,7 +20,7 @@ from sklearn.preprocessing import StandardScaler
 import yfinance as yf
 
 # ---------------- CONFIG ----------------
-TICKERS = ["^MXX", "^SPX", "^VIX", "^GSPC","^BVSP"]   # edita si quieres
+TICKERS = ["^MXX", "^SPX", "^VIX", "^GSPC","^BVSP","^RIOT","^N225","^SOXL"]   # edita si quieres
 PERIOD = "3y"
 INTERVAL = "1d"
 ROLLING_WINDOW = 20        # para rolling mean/std (bandas)
