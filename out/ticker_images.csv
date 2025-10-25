@@ -4,6 +4,5 @@ ticker,image_url
 ^VIX,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EVIX_if_plot_2025-10-25.png
 ^GSPC,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EGSPC_if_plot_2025-10-25.png
 ^BVSP,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EBVSP_if_plot_2025-10-25.png
-^RIOT,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5ERIOT_if_plot_2025-10-25.png
 ^N225,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EN225_if_plot_2025-10-25.png
-^SOXL,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5ESOXL_if_plot_2025-10-25.png
+BYMA.BA,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EBYMA.BA_if_plot_2025-10-25.png

@@ -9,3 +9,4 @@ date,ticker,rows,anomalies_bandas,anomalies_if,anomalies_both,anomalies_or
 2025-10-24,^GSPC,753,75,38,11,102
 2025-10-24,^BVSP,752,75,38,7,106
 2025-10-24,^N225,737,85,37,7,115
+2025-10-24,BYMA.BA,736,82,37,10,109
