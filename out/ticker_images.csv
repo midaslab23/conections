@@ -5,4 +5,4 @@ ticker,image_url
 ^GSPC,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EGSPC_if_plot_2025-10-25.png
 ^BVSP,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EBVSP_if_plot_2025-10-25.png
 ^N225,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EN225_if_plot_2025-10-25.png
-BYMA.BA,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EBYMA.BA_if_plot_2025-10-25.png
+^DJI,https://raw.githubusercontent.com/midaslab23/conections/refs/heads/main/out/%5EDJI_if_plot_2025-10-25.png
